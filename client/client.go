@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -36,8 +35,8 @@ func (c *C) Run() error {
 		Port: 9901,
 	}
 	dstAddr := &net.UDPAddr{
-		IP:   net.ParseIP("192.168.1.102"),
-		Port: 9527,
+		IP:   c.remoteServerIP,
+		Port: c.remoteServerPort,
 	}
 	conn, err := net.DialUDP("udp", srcAddr, dstAddr)
 	if err != nil {
@@ -68,6 +67,7 @@ func parseAddr(addr string) (string, int) {
 }
 
 func (c *C) bidirectionHole(srcAddr *net.UDPAddr, anotherAddr *net.UDPAddr) {
+	fmt.Println("开始发送消息")
 	conn, err := net.DialUDP("udp", srcAddr, anotherAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -75,13 +75,13 @@ func (c *C) bidirectionHole(srcAddr *net.UDPAddr, anotherAddr *net.UDPAddr) {
 	defer conn.Close()
 	// 向另一个peer发送一条udp消息(对方peer的nat设备会丢弃该消息,非法来源),用意是在自身的nat设备打开一条可进入的通道,这样对方peer就可以发过来udp消息
 	if _, err = conn.Write([]byte(HAND_SHAKE_MSG)); err != nil {
-		log.Println("send handshake:", err)
+		fmt.Println("send handshake:", err)
 	}
 	go func() {
 		for {
 			time.Sleep(10 * time.Second)
 			if _, err = conn.Write([]byte("from [" + c.clientName + "]")); err != nil {
-				log.Println("send msg fail", err)
+				fmt.Println("send msg fail", err)
 			}
 		}
 	}()
@@ -89,9 +89,15 @@ func (c *C) bidirectionHole(srcAddr *net.UDPAddr, anotherAddr *net.UDPAddr) {
 		data := make([]byte, 1024)
 		n, _, err := conn.ReadFromUDP(data)
 		if err != nil {
-			log.Printf("error during read: %s\n", err)
+			fmt.Printf("error during read: %s\n", err)
 		} else {
-			log.Printf("收到数据:%s\n", data[:n])
+			fmt.Printf("收到数据:%s\n", data[:n])
 		}
 	}
+}
+
+func main() {
+	c, _ := NewClient("118.126.115.79:9537", "小松3")
+	c.Run()
+
 }
